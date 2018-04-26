@@ -182,6 +182,11 @@ input[type=button]:hover {
   color: #555;
 }
 
+.lineerror {
+  background-color: #222;
+  color: #900;
+}
+
 #wrap .CodeMirror {
   height: 100%;
   font-family: 'Go', 'Inconsolata', monospace;

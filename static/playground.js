@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+/*
 function HTTPTransport() {
   'use strict';
 
@@ -25,6 +26,7 @@ function HTTPTransport() {
         output({Kind: 'stdout', Body: e.Message});
         next();
       }, e.Delay / 1000000);
+
     }
     next();
     return {
@@ -70,6 +72,124 @@ function HTTPTransport() {
           output({Kind: 'end', Body: 'killed'});
         }
       };
+    }
+  };
+}
+
+hbio.procExec("hbtree","alcz")
+hbio.funcExec("hbformat") -> { Body: "<formatted>", Error: "" }
+hbio.funcExec("hbrun") -> { Events: [ { Message: "abc", Kind: "stdout", Delay: 0 }, { Message: "badinfo", Kind: "stderr" } ], Errors: "" }
+
+*/
+
+function hbioTransport() {
+  'use strict';
+
+  var id = 0;
+  var outputs = {};
+  var started = {};
+  var reuse_hbio = { conn: null };
+  function do_connect( job, new_conn ){
+
+    if( !new_conn && reuse_hbio.conn != null ) {
+      job( reuse_hbio.conn );
+      return;
+    }
+
+    var websocket = new WebSocket('wss://' + window.location.host + '/hvm/');
+//    var websocket = new WebSocket('wss://os.allcom.pl/hvm/');
+    var hbio;
+
+    websocket.onopen = function() {
+      reuse_hbio.conn = hbio = new HbIO( websocket );
+      websocket.addEventListener("message", onmessage );
+      job( hbio );
+    }
+
+    websocket.onclose = function() {
+      console.log('websocket connection closed');
+      reuse_hbio.conn = null;
+    }
+
+    websocket.onmessage = function(e) {
+      hbio.processPacket( e.data );
+    }
+
+  }
+
+  function playback(output, events) {
+    var timeout;
+    output({Kind: 'start'});
+    function next() {
+      if (!events || events.length === 0) {
+        output({Kind: 'end'});
+        return;
+      }
+      var e = events.shift();
+      if (e.Delay === 0) {
+        output({Kind: e.Kind, Body: e.Message});
+        next();
+        return;
+      }
+      timeout = setTimeout(function() {
+        output({Kind: e.Kind, Body: e.Message});
+        next();
+     }, e.Delay * 1000 );
+
+    }
+    next();
+    return {
+      Stop: function() {
+        clearTimeout(timeout);
+      }
+    }
+  }
+
+  function error(output, msg) {
+    output({Kind: 'start'});
+    output({Kind: 'stderr', Body: msg});
+    output({Kind: 'end'});
+  }
+
+  var seq = 0;
+  return {
+    Run: function(body, output, options) {
+      seq++;
+      var cur = seq;
+      var playing;
+      do_connect( function(hbio) {
+        if (typeof options['hbVer'] !== 'undefined')
+          hbio.procExec('hbtree',options['hbVer']);
+
+        hbio.funcExec('hbrun', function(data) {
+          if (seq != cur) return;
+          hbio.socket.close();
+          if (!data) return;
+          if (playing != null) playing.Stop();
+          if (data.Errors) {
+            error(output, data.Errors);
+            return;
+          }
+          playing = playback(output, data.Events);
+        }, body )
+      } );
+      return {
+        Kill: function() {
+          if (playing != null) playing.Stop();
+          output({Kind: 'end', Body: 'killed'});
+        }
+      };
+    },
+    Format: function(body, callback, options) {
+      do_connect( function(hbio) {
+        if (typeof options['hbVer'] !== 'undefined')
+          hbio.procExec('hbtree',options['hbVer']);
+
+        hbio.funcExec('hbfmt', function(data) {
+          hbio.socket.close();
+          callback(data);
+        }, body )
+      } )
     }
   };
 }
@@ -182,23 +302,6 @@ function goPlaygroundOptions(opts) {
 goPlaygroundOptions({});
 
 (function() {
-  function lineHighlight(error) {
-    var regex = /prog.go:([0-9]+)/g;
-    var r = regex.exec(error);
-    while (r) {
-      $(".lines div").eq(r[1]-1).addClass("lineerror");
-      r = regex.exec(error);
-    }
-  }
-  function highlightOutput(wrappedOutput) {
-    return function(write) {
-      if (write.Body) lineHighlight(write.Body);
-      wrappedOutput(write);
-    }
-  }
-  function lineClear() {
-    $(".lineerror").removeClass("lineerror");
-  }
 
   // opts is an object with these keys
   //  codeEl - code editor element
@@ -210,21 +313,21 @@ goPlaygroundOptions({});
   //  shareURLEl - share URL text input element (optional)
   //  shareRedirect - base URL to redirect to on share (optional)
   //  enableHistory - enable using HTML5 history API (optional)
-  //  transport - playground transport to use (default is HTTPTransport)
+  //  transport - playground transport to use (default is hbioTransport)
   function playground(opts) {
     var opts = $.extend(opts, playgroundOptions);
     var code = $(opts.codeEl);
-    var transport = opts['transport'] || new HTTPTransport();
+    var transport = opts['transport'] || new hbioTransport();
     var running;
 
     console.log(code);
     var editorProps = {
       lineNumbers: true,
-      indentWithTabs: true,
-      mode: 'go',
-      smartIndent: true,
-      tabSize: 4,
-      indentUnit: 4,
+      indentWithTabs: false,
+      mode: 'harbour',
+      smartIndent: false,
+      tabSize: 3,
+      indentUnit: 3,
     };
 
     if (typeof opts['theme'] !== 'undefined') {
@@ -235,6 +338,29 @@ goPlaygroundOptions({});
 
     var outdiv = $(opts.outputEl).empty().hide();
     var output = $('<pre/>').appendTo(outdiv);
+
+    function lineHighlight(error) {
+      var regex = /1.stdin\(([0-9]+)/g;
+      var r = regex.exec(error);
+      while (r) {
+        editor.addLineClass(r[1]-1, 'wrap', 'lineerror');
+        // $(".lines div").eq(r[1]-1).addClass("lineerror");
+        r = regex.exec(error);
+      }
+    }
+    function highlightOutput(wrappedOutput) {
+      return function(write) {
+        if (write.Body) lineHighlight(write.Body);
+        wrappedOutput(write);
+      }
+    }
+    function lineClear() {
+      editor.operation(function() {
+        for (var i = 0, e = editor.lineCount(); i < e; ++i)
+          editor.removeLineClass(i, 'wrap', 'lineerror');
+        });
+        // $(".lineerror").removeClass("lineerror");
+    }
 
     function body() {
       return editor.getValue();
@@ -289,26 +415,18 @@ goPlaygroundOptions({});
     function run() {
       $(opts.outputEl).fadeIn();
       loading();
-      running = transport.Run(body(), highlightOutput(PlaygroundOutput(output[0])));
+      running = transport.Run(body(), highlightOutput(PlaygroundOutput(output[0])), opts );
     }
-
     function fmt() {
       loading();
-      var data = {"body": body()};
-      data["imports"] = "true";
-      $.ajax(playgroundOptions.fmtURL, {
-        data: data,
-        type: "POST",
-        dataType: "json",
-        success: function(data) {
-          if (data.Error) {
-            setError(data.Error);
-          } else {
-            setBody(data.Body);
-            setError("");
-          }
+      transport.Format( body(), function(data) {
+        if (data.Error) {
+          setError(data.Error);
+        } else {
+          setBody(data.Body);
+          setError("");
         }
-      });
+     }, opts );
     }
 
     $(opts.runEl).click(run);

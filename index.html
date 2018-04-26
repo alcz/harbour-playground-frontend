@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Harbour Playground</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="static/playground-full.css">
+
+    <script src="static/jquery.min.js"></script>
+    <script src="static/playground-full.js"></script>
+
+    <link rel="shortcut icon" href="static/favicon.ico" sizes="16x16 32x32" type="image/vnd.microsoft.icon">
+
+    <script>
+    $(document).ready(function() {
+      playground({
+        'theme':        'material',
+//        'hbVer':        '3.2',
+        'codeEl':       '#code',
+        'outputEl':     '#output',
+        'runEl':        '#run',
+        'fmtEl':        '#fmt',
+        'fmtImportEl':  '#imports',
+
+//        'shareEl':      '#share',
+//        'shareURLEl':   '#shareURL',
+
+        'enableHistory': true
+      });
+      playgroundEmbed({
+        'theme':        'material',
+        'codeEl':       '#code',
+
+//        'shareEl':      '#share',
+
+        'embedEl':      '#embed',
+        'embedLabelEl': '#embedLabel',
+        'embedHTMLEl':  '#shareURL'
+      });
+      // Avoid line wrapping.
+      var about = $('#about');
+      about.click(function(e) {
+        if ($(e.target).is('a')) {
+          return;
+        }
+        about.hide();
+      });
+      $('#aboutButton').click(function() {
+        if (about.is(':visible')) {
+          about.hide();
+          return;
+        }
+        about.show();
+      })
+    });
+    </script>
+  </head>
+  <body itemscope itemtype="http://schema.org/CreativeWork">
+    <div id="banner">
+      <div id="head" itemprop="name">Harbour Playground</div>
+      <div id="controls">
+        <input type="button" value="Run" id="run">
+        <input type="button" value="Format" id="fmt">
+
+        <!-- <input type="button" value="Share" id="share">
+        <input type="text" id="shareURL"> -->
+        <label id="embedLabel">
+          <input type="checkbox" id="embed">
+          embed
+        </label>
+
+      </div>
+      <div id="aboutControls">
+        <input type="button" value="About" id="aboutButton">
+      </div>
+    </div>
+    <div id="wrap">
+      <textarea itemprop="description" id="code" name="code" autocorrect="off" autocomplete="off" autocapitalize="off" spellcheck="false">PROCEDURE Main
+   ? "Hello, playground"
+      </textarea>
+    </div>
+    <div id="output"></div>
+    <img itemprop="image" src="static/harbour.png" style="display:none">
+        <div id="about">
+      <p><b>About this Playground</b></p>
+      <p>
+        The Harbour Playground is a web service that runs on
+        <a href="//os.allcom.pl/">os.allcom.pl</a>'s servers.
+        The service receives a Harbour program, compiles, links, and
+        runs the program inside a sandbox, then returns the output.
+      </p>
+      <p>
+        There are limitations to the programs that can be run in the playground:
+        <ul>
+          <li>
+             The playground can use most of the standard library, with some exceptions.
+             The only communication a playground program has to the outside world
+             is by writing to standard output and standard error.
+          </li>
+          <li>
+             In the playground the time begins at 1999-05-04 14:32:22 UTC
+             (determining the significance of this date is an exercise for the reader).
+             This makes it easier to cache programs by giving them deterministic output.
+           </li>
+           <li>
+              There are also limits on execution time and on CPU and memory usage.
+           </li>
+        </ul>
+      </p>
+      <p>
+        By default the playground uses the latest 3.2 snapshot of Harbour.<br>
+        To find the precise version, run <a href="/p/1VcPUlPk_3">this program</a>.
+      </p>
+    </div>
+
+  </body>
+</html>
