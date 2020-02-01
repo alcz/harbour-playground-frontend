@@ -13,16 +13,15 @@ a {
   color: #1CA8B2;
 }
 #wrap,
-#about {
+#about,
+#cinema {
   padding: 5px;
   margin: 0;
-
   position: absolute;
   top: 50px;
   bottom: 25%;
   left: 0;
   right: 0;
-
 }
 #wrap {
   background-color: #263238;
@@ -44,6 +43,15 @@ a {
 #about li {
   margin-bottom: 1em;
 }
+
+#cinema {
+  padding: 10px 40px;
+  overflow: auto;
+  display: none;
+  background-color: rgba(0,0,0,0.5);
+  z-index: 99;
+}
+
 #code, #output, pre, .lines {
   font-family: 'Go', 'Inconsolata', monospace;
   font-size: 11pt;

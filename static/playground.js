@@ -120,6 +120,12 @@ function hbioTransport() {
   function playback(output, events) {
     var timeout;
     output({Kind: 'start'});
+    // detect ANSI terminal sequences if any
+    for (var i = 0; i < events.length; i++) {
+      if (events[i].Message != undefined &&
+          events[i].Message.charCodeAt( 0 ) == 27)
+        { output({Kind: 'asciinema', Body: events}); break; }
+    }
     function next() {
       if (!events || events.length === 0) {
         output({Kind: 'end'});
@@ -237,13 +243,54 @@ function SocketTransport() {
   };
 }
 
+function formatCast( events ) {
+  var ts = 0;
+  var ret = '';
+  for (var i = 0; i < events.length; i++) {
+    if (events[i].Message != undefined)
+    {
+      if( events[i].Delay > 0 )
+        ts += events[i].Delay;
+
+      if (events[i].Kind == 'stdout')
+        ret += "\n[" + ts.toString() + ",\"o\"," + JSON.stringify(events[i].Message) + "]";
+    }
+  }
+  return ret;
+}
+
 function PlaygroundOutput(el) {
   'use strict';
 
   return function(write) {
+    var cin;
     if (write.Kind == 'start') {
       el.innerHTML = '';
+      if (document.getElementById('player') &&
+          (cin = $('#cinema') ).is(':visible')) {
+          cin.hide();
+          return;
+      }
       return;
+    }
+    else if (write.Kind == 'asciinema') {
+      if (document.getElementById('cinema'))
+         cin = $('#cinema');
+      write.Kind = 'stderr';
+      if (cin) {
+        var src = '{"version": 2, "width": 80, "height": 25, "timestamp": 1504467315, "title": "Demo", "env": {"TERM": "xterm-256color", "SHELL": "/bin/zsh"}}'
+        src += formatCast( write.Body );
+        cin.html( "<asciinema-player " +
+                  "id='player' " +
+                  "autoplay='true' " +
+                  "idle-time-limit='5' " +
+                  "font-size='medium' "+
+                  "src='data:application/javascript;base64," + window.btoa(src) + "'>" +
+                  "</asciinema-player>" );
+        cin.show();
+        write.Body = 'ANSI terminal sequences detected - trying to popup asciinema window\n';
+      } else
+        write.Body = 'ANSI terminal sequences detected - please use asciinema enabled Harbour Playground\n';
     }
 
     var cl = 'system';
