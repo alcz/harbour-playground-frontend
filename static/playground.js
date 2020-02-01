@@ -172,6 +172,8 @@ function hbioTransport() {
           hbio.socket.close();
           if (!data) return;
           if (playing != null) playing.Stop();
+          if (data.Zurl)
+            window.location.hash = '#!' + data.Zurl;
           if (data.Errors) {
             error(output, data.Errors);
             return;
@@ -195,6 +197,14 @@ function hbioTransport() {
           hbio.socket.close();
           callback(data);
         }, body )
+      } )
+    },
+    Zurl: function(zbody, callback) {
+      do_connect( function(hbio) {
+        hbio.funcExec('hbz', function(data) {
+          hbio.socket.close();
+          callback(data);
+        }, zbody )
       } )
     }
   };
@@ -467,6 +477,8 @@ goPlaygroundOptions({});
     function fmt() {
       loading();
       transport.Format( body(), function(data) {
+        if (data.Zurl)
+          window.location.hash = '#!' + data.Zurl;
         if (data.Error) {
           setError(data.Error);
         } else {
@@ -478,6 +490,14 @@ goPlaygroundOptions({});
 
     $(opts.runEl).click(run);
     $(opts.fmtEl).click(fmt);
+
+    if (window.location.hash.startsWith('#!'))
+    {
+      setError("");
+      setBody("");
+      transport.Zurl( window.location.hash.substring(2),
+                      function(data) { if (data) setBody(data); } );
+    }
 
     if (opts.shareEl !== null && (opts.shareURLEl !== null || opts.shareRedirect !== null)) {
       var shareURL;
