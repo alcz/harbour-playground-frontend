@@ -1,0 +1,227 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Harbour Playground</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="static/playground-full.css">
+    <link rel="stylesheet" href="static/asciinema-player.css">
+
+    <script src="static/jquery.min.js"></script>
+    <script src="static/playground-full.js"></script>
+    <script src="static/asciinema-player.js"></script>
+
+    <link rel="shortcut icon" href="static/favicon.ico" sizes="16x16 32x32" type="image/vnd.microsoft.icon">
+
+    <script>
+    $(document).ready(function() {
+      playground({
+        'theme':        'material',
+//        'hbVer':        '3.2',
+        'codeEl':       '#code',
+        'outputEl':     '#output',
+        'runEl':        '#run',
+        'fmtEl':        '#fmt',
+        'fmtImportEl':  '#imports',
+        'wasmEl':       '#wasmopts',
+
+//        'shareEl':      '#share',
+//        'shareURLEl':   '#shareURL',
+
+        'enableHistory': true
+      });
+      playgroundEmbed({
+        'theme':        'material',
+        'codeEl':       '#code',
+
+//        'shareEl':      '#share',
+
+        'embedEl':      '#embed',
+        'embedLabelEl': '#embedLabel',
+        'embedHTMLEl':  '#shareURL'
+      });
+      // Avoid line wrapping.
+      var about = $('#about');
+      about.click(function(e) {
+        if ($(e.target).is('a')) {
+          return;
+        }
+        about.hide();
+      });
+      var wasm_pb = $('#wasmButton');
+      var runner_div = $('#runner');
+      wasm_pb.click(function(e) {
+        if ( ! WasmActive ) {
+          wasm_pb.prop('value','Activating WASM...');
+          wasm_pb.prop('disabled', true);
+          Module['onRuntimeInitialized'] = function() {
+             console.log("wasm loaded");
+             wasm_pb.prop('value','WASM additions');
+             wasm_pb.prop('disabled', false);
+             WasmActive = true;
+          }
+          runner_div.append('<scr'+'ipt async type="text/javascript" src="static/runner.js"></scr'+'ipt>');
+          return;
+        }
+        if (runner_div.is(':visible')) {
+          runner_div.hide();
+          return;
+        }
+        runner_div.show();
+      });
+      var cin = $('#cinema');
+      cin.click(function(e) {
+        if ( ! $(e.target).is('div')) {
+          return;
+        }
+        cin.hide();
+      });
+      $('#aboutButton').click(function() {
+        if (about.is(':visible')) {
+          about.hide();
+          return;
+        }
+        about.show();
+      })
+    });
+    </script>
+  </head>
+  <body itemscope itemtype="http://schema.org/CreativeWork">
+    <div id="banner">
+      <div id="head" itemprop="name">Harbour Playground</div>
+      <div id="controls">
+        <input type="button" value="Run" id="run">
+        <input type="button" value="Format" id="fmt">
+
+        <input type="button" value="Activate WASM" id="wasmButton">
+        <!-- <input type="button" value="Share" id="share">
+        <input type="text" id="shareURL"> -->
+        <label id="embedLabel">
+          <input type="checkbox" id="embed">
+          embed
+        </label>
+
+      </div>
+      <div id="aboutControls">
+        <input type="button" value="About" id="aboutButton">
+      </div>
+    </div>
+    <div id="wrap">
+      <textarea itemprop="description" id="code" name="code" autocorrect="off" autocomplete="off" autocapitalize="off" spellcheck="false">PROCEDURE Main
+   ? "Hello, playground"
+      </textarea>
+    </div>
+    <div id="output"></div>
+    <div id="cinema"></div>
+    <img itemprop="image" src="static/harbour.png" style="display:none">
+    <div id="runner">
+      <canvas class="wasmrun" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+      <script type='text/javascript'>
+        var WasmActive = false;
+        var PreloadedSTDIN;
+        var PreloadedRead = 0;
+        var Module = {
+          arguments: ['-'],
+          preRun: function() {
+            function stdin() {
+              if (PreloadedSTDIN == null) {
+                return null;
+              }
+              if (PreloadedRead < PreloadedSTDIN.length) {
+                var code = PreloadedSTDIN.charCodeAt(PreloadedRead);
+                ++PreloadedRead;
+                return code;
+              } else {
+                return null;
+              }
+            }
+
+            var stdoutBuffer = "";
+            function stdout(code) {
+              if (code === "\n".charCodeAt(0) && stdoutBuffer !== "") {
+                console.log(stdoutBuffer);
+                stdoutBuffer = "";
+              } else {
+                stdoutBuffer += String.fromCharCode(code);
+              }
+            }
+  
+            var stderrBuffer = "";
+            function stderr(code) {
+              if (code === "\n".charCodeAt(0) && stderrBuffer !== "") {
+                console.log(stderrBuffer);
+                stderrBuffer = "";
+              } else {
+                stderrBuffer += String.fromCharCode(code);
+              }
+            }
+
+            FS.init(stdin, stdout, stderr);
+          },
+          postRun: [],
+          print: (function() {
+              return function(text) {
+                  text = Array.prototype.slice.call(arguments).join(' ');
+                  console.log(text);
+              };
+          })(),
+          printErr: function(text) {
+              text = Array.prototype.slice.call(arguments).join(' ');
+              console.error(text);
+          },
+          canvas: (function() {
+              var canvas = document.getElementById('canvas');
+              //canvas.addEventListener("webglcontextlost", function(e) { alert('FIXME: WebGL context lost, please reload the page'); e.preventDefault(); }, false);
+              return canvas;
+          })(),
+          setStatus: function(text) {
+              console.log("status: " + text);
+          },
+          monitorRunDependencies: function(left) {
+              console.log("monitor run deps: " + left);
+          }
+        };
+        window.onerror = function() {
+          console.log("onerror: " + event.message);
+        };
+
+        // if (window.location.hash.startsWith('#*')) {
+        //   PreloadedSTDIN = window.location.hash.substring(1);
+        // } else if (window.location.hash.startsWith('#!')) {
+        //   alert(".prg source code (url#!...), not supported by this runner, supply compiled .hrb (url#*...)");
+        // }
+      </script>
+    </div>
+    <div id="about">
+      <p><b>About this Playground</b></p>
+      <p>
+        The Harbour Playground is a web service that runs on
+        <a href="//os.allcom.pl/">os.allcom.pl</a>'s servers.
+        The service receives a Harbour program, compiles, links, and
+        runs the program inside a sandbox, then returns the output.
+      </p>
+      <p>
+        There are limitations to the programs that can be run in the playground:
+        <ul>
+          <li>
+             The playground can use most of the standard library, with some exceptions.
+             The only communication a playground program has to the outside world
+             is by writing to standard output and standard error.
+          </li>
+          <li>
+             In the playground the time begins at 1999-05-04 14:32:22 UTC
+             (determining the significance of this date is an exercise for the reader).
+             This makes it easier to cache programs by giving them deterministic output.
+           </li>
+           <li>
+              There are also limits on execution time and on CPU and memory usage.
+           </li>
+        </ul>
+      </p>
+      <p>
+        By default the playground uses the latest 3.2 snapshot of Harbour.<br>
+        To find the precise version, run <a href="/p/1VcPUlPk_3">this program</a>.
+      </p>
+    </div>
+
+  </body>
+</html>
