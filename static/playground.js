@@ -76,8 +76,8 @@ function HTTPTransport() {
   };
 }
 
-hbio.procExec("hbtree","alcz")
-hbio.funcExec("hbformat") -> { Body: "<formatted>", Error: "" }
+hbio.procExec("hbtree","alcz",true/false)
+hbio.funcExec("hbfmt") -> { Body: "<formatted>", Error: "" }
 hbio.funcExec("hbrun") -> { Events: [ { Message: "abc", Kind: "stdout", Delay: 0 }, { Message: "badinfo", Kind: "stderr" } ], Errors: "" }
 
 */
@@ -157,6 +157,23 @@ function hbioTransport() {
     output({Kind: 'end'});
   }
 
+  function wasmexec(output, data, options) {
+    output({Kind: 'start'});
+    if( typeof options['wasmEl'] !== 'undefined' ) {
+       if( WasmActive )
+         output({Kind: 'stderr', Body: 'WebAssembly runner active in this tab\n'});
+    }
+    output({Kind: 'stdout', Body: 'compiled code is an interactive program, trying to open it in another browser window\n'});
+    if( typeof options['wasmRedir'] !== 'undefined' ) {
+      window.open(options['wasmRedir'] + '#' + data, '_blank');
+      output({Kind: 'linkwasm', Body: '#' + data});
+    } else {
+      output({Kind: 'stderr', Body: 'no wasmRedir option defined\n'});
+    }
+    output({Kind: 'end'});
+
+  }
+
   var seq = 0;
   return {
     Run: function(body, output, options) {
@@ -164,8 +181,12 @@ function hbioTransport() {
       var cur = seq;
       var playing;
       do_connect( function(hbio) {
+        var we_can_run_hrb = typeof options['wasmEl'] !== 'undefined' ||
+                             typeof options['wasmRedir'] !== 'undefined';
         if (typeof options['hbVer'] !== 'undefined')
-          hbio.procExec('hbtree',options['hbVer']);
+          hbio.procExec('hbtree',options['hbVer'],we_can_run_hrb);
+        else if (typeof options['wasmEl'] !== 'undefined')
+          hbio.procExec('hbtree',null,we_can_run_hrb);
 
         hbio.funcExec('hbrun', function(data) {
           if (seq != cur) return;
@@ -174,6 +195,10 @@ function hbioTransport() {
           if (playing != null) playing.Stop();
           if (data.Zurl)
             window.location.hash = '#!' + data.Zurl;
+          if (data.hasOwnProperty('Zexec')) {
+            wasmexec(output, data.Zexec, options)
+            return;
+          }
           if (data.Errors) {
             error(output, data.Errors);
             return;
@@ -269,7 +294,7 @@ function formatCast( events ) {
   return ret;
 }
 
-function PlaygroundOutput(el) {
+function PlaygroundOutput(el,options) {
   'use strict';
 
   return function(write) {
@@ -283,9 +308,19 @@ function PlaygroundOutput(el) {
       }
       return;
     }
+    else if (write.Kind == 'linkwasm') {
+       // don't open arbitrary links from playground, only wasmRedir host!
+       if ( typeof options['wasmRedir'] !== 'undefined' ) {
+         var lnk = document.createElement('a');
+         lnk.href = options['wasmRedir'] + write.Body;
+         lnk.target = '_blank';
+         lnk.textContent = 'click to execute in external window';
+         el.appendChild(lnk);
+       }
+    }
     else if (write.Kind == 'asciinema') {
       if (document.getElementById('cinema'))
-         cin = $('#cinema');
+        cin = $('#cinema');
       write.Kind = 'stderr';
       if (cin) {
         var src = '{"version": 2, "width": 80, "height": 25, "timestamp": 1504467315, "title": "Demo", "env": {"TERM": "xterm-256color", "SHELL": "/bin/zsh"}}'
@@ -472,7 +507,7 @@ goPlaygroundOptions({});
     function run() {
       $(opts.outputEl).fadeIn();
       loading();
-      running = transport.Run(body(), highlightOutput(PlaygroundOutput(output[0])), opts );
+      running = transport.Run(body(), highlightOutput(PlaygroundOutput(output[0],opts)),opts);
     }
     function fmt() {
       loading();
