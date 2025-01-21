@@ -183,10 +183,12 @@ function hbioTransport() {
       do_connect( function(hbio) {
         var we_can_run_hrb = typeof options['wasmEl'] !== 'undefined' ||
                              typeof options['wasmRedir'] !== 'undefined';
+        var hb_verstr = '';
         if (typeof options['hbVer'] !== 'undefined')
-          hbio.procExec('hbtree',options['hbVer'],we_can_run_hrb);
-        else if (typeof options['wasmEl'] !== 'undefined')
-          hbio.procExec('hbtree',null,we_can_run_hrb);
+          hb_verstr += options['hbVer'];
+        if (typeof options['hbAddons'] !== 'undefined')
+          hb_verstr += options['hbAddons'];
+        hbio.procExec('hbtree',hb_verstr,we_can_run_hrb);
 
         hbio.funcExec('hbrun', function(data) {
           if (seq != cur) return;
