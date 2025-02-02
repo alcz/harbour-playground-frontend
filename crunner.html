@@ -13,11 +13,21 @@
     <link rel="shortcut icon" href="static/favicon.ico" sizes="16x16 32x32" type="image/vnd.microsoft.icon">
 
     <script>
+    var PreloadedSTDIN;
+    if (window.location.hash.startsWith('#*')) {
+      PreloadedSTDIN = window.location.hash.substring(1);
+      var srcpos = window.location.hash.indexOf('!');
+      if (srcpos > 0) {
+        window.location.hash = window.location.hash.substring(srcpos);
+        PreloadedSTDIN = PreloadedSTDIN.slice(0,srcpos - 1);
+      }
+    }
+
     $(document).ready(function() {
       playground({
         'theme':        'material',
 //        'hbVer':        '3.2',
-        'hbAddons'      '+Dear ImGui 1.85 docking',
+        'hbAddons':     '+Dear ImGui 1.85 docking',
 //        'hbAddonsEl'    '#addons',
         'codeEl':       '#code',
         'outputEl':     '#output',
@@ -26,6 +36,7 @@
         'fmtImportEl':  '#imports',
         'wasmEl':       '#wasmopts',
         'wasmRedir':    'crunner.html',
+//        'wasmRedirPop': 'runner.html',
 
 //        'shareEl':      '#share',
 //        'shareURLEl':   '#shareURL',
@@ -127,10 +138,9 @@
     <div id="runner">
       <canvas class="wasmrun" id="canvas" tabindex="1" oncontextmenu="event.preventDefault()"></canvas>
       <script type='text/javascript'>
-        var PreloadedSTDIN;
         var PreloadedRead = 0;
         var Module = {
-          arguments: ['-'],
+          arguments: ['-','-hidpi'],
           preRun: function() {
             function stdin() {
               if (PreloadedSTDIN == null) {
@@ -195,15 +205,9 @@
         };
 
         $(document).ready(function() {
-          if (window.location.hash.startsWith('#*')) {
-            PreloadedSTDIN = window.location.hash.substring(1);
+          if( PreloadedSTDIN )
             $('#wasmButton').trigger('click');
-          }
         })
-        // else if (window.location.hash.startsWith('#!')) {
-        //   alert(".prg source code (url#!...), not supported by this runner, supply compiled .hrb (url#*...)");
-        // }
-
       </script>
     </div>
     <div id="about">

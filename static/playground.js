@@ -166,7 +166,9 @@ function hbioTransport() {
     output({Kind: 'stdout', Body: 'compiled code is an interactive program, trying to open it in another browser window\n'});
     if( typeof options['wasmRedir'] !== 'undefined' ) {
       window.open(options['wasmRedir'] + '#' + data, '_blank');
-      output({Kind: 'linkwasm', Body: '#' + data});
+      output({Kind: 'linkwasm', Body: '#' + data, Popup: false });
+      if( typeof options['wasmRedirPop'] !== 'undefined' )
+        output({Kind: 'linkwasm', Body: '#' + data, Popup: true });
     } else {
       output({Kind: 'stderr', Body: 'no wasmRedir option defined\n'});
     }
@@ -198,7 +200,10 @@ function hbioTransport() {
           if (data.Zurl)
             window.location.hash = '#!' + data.Zurl;
           if (data.hasOwnProperty('Zexec')) {
-            wasmexec(output, data.Zexec, options)
+            if (data.hasOwnProperty('Zurl'))
+               wasmexec(output, data.Zexec + '!' + data.Zurl, options);
+            else
+               wasmexec(output, data.Zexec, options);
             return;
           }
           if (data.Errors) {
@@ -311,14 +316,26 @@ function PlaygroundOutput(el,options) {
       return;
     }
     else if (write.Kind == 'linkwasm') {
-       // don't open arbitrary links from playground, only wasmRedir host!
-       if ( typeof options['wasmRedir'] !== 'undefined' ) {
-         var lnk = document.createElement('a');
-         lnk.href = options['wasmRedir'] + write.Body;
-         lnk.target = '_blank';
-         lnk.textContent = 'click to execute in external window';
-         el.appendChild(lnk);
-       }
+      // don't open arbitrary links from playground, only wasmRedir host!
+      if (!write.Popup && typeof options['wasmRedir'] !== 'undefined') {
+        var lnk = document.createElement('a');
+        lnk.href = options['wasmRedir'] + write.Body;
+        lnk.target = '_blank';
+        lnk.textContent = 'click to execute in external window';
+        el.appendChild(lnk);
+
+      } else if (write.Popup && typeof options['wasmRedirPop'] !== 'undefined') {
+        if (typeof options['wasmRedir'] !== 'undefined')
+          el.innerHTML += '\n';
+        var lnk = document.createElement('a');
+        lnk.href = options['wasmRedirPop'] + write.Body;
+        lnk.target = '_blank';
+        lnk.textContent = 'click to execute in popup window';
+        lnk.onclick = function() {
+          window.open(options['wasmRedirPop'] + write.Body, write.Body, "popup");
+        }
+        el.appendChild(lnk);
+      }
     }
     else if (write.Kind == 'asciinema') {
       if (document.getElementById('cinema'))
