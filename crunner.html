@@ -139,8 +139,13 @@
       <canvas class="wasmrun" id="canvas" tabindex="1" oncontextmenu="event.preventDefault()"></canvas>
       <script type='text/javascript'>
         var PreloadedRead = 0;
+        var queryDPI = '(-webkit-min-device-pixel-ratio: 1.5), (min-device-pixel-ratio: 1.5), (min-resolution: 192dpi)';
+        var runArgs  = ['-'];
+        if (matchMedia(queryDPI).matches) {
+          runArgs.push('-hidpi');
+        }
         var Module = {
-          arguments: ['-','-hidpi'],
+          arguments: runArgs,
           preRun: function() {
             function stdin() {
               if (PreloadedSTDIN == null) {
